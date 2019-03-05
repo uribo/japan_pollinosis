@@ -56,14 +56,18 @@ parse_table_data <- function(url, jp_year) {
                               ~ if_else(is.na(..6),
                                         as.double(..4),
                                         readr::parse_number(..4)))) %>% 
-    readr::type_convert()
+    readr::type_convert() %>% 
+    tidyr::fill(date)
 }
+
+slow_parse_table <- 
+  slowly(~ parse_table_data(.x,
+                          jp_year = .x %>% 
+                            stringr::str_extract("h[0-9]{2}")), 
+       rate = rate_delay(pause = 3), 
+       quiet = FALSE)
 
 df_pollen_archives <- 
   data_urls %>% 
-  purrr::map_dfr(~ slowly(~ parse_table_data(.x,
-                                         jp_year = .x %>% 
-                                           stringr::str_extract("h[0-9]{2}")), 
-                      rate = rate_delay(pause = 3), 
-                      quiet = FALSE)(.x)) %>% 
+  purrr::map_dfr(~ slow_parse_table(.)) %>% 
   assertr::verify(dim(.) == c(43992, 6))
