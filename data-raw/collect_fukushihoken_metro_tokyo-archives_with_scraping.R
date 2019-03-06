@@ -57,7 +57,12 @@ parse_table_data <- function(url, jp_year) {
                               ~ if_else(is.na(..6),
                                         as.double(..4),
                                         readr::parse_number(..4)))) %>% 
-    readr::type_convert() %>% 
+    readr::type_convert(.,
+      col_types = readr::cols(
+      station   = readr::col_character(),
+      type      = readr::col_character(),
+      note      = readr::col_logical()
+      )) %>% 
     tidyr::fill(date)
 }
 
@@ -81,6 +86,16 @@ df_pollen_archives <-
                         ymd("2009-03-11"),
                         date)) %>% 
   assertr::verify(dim(.) == c(43992, 6))
+
+# Missing value exist?
+df_pollen_archives %>% 
+  filter(is.na(value)) %>% 
+  assertr::verify(nrow(.) == 101)
+
+# Complete case?
+df_pollen_archives %>% 
+  filter_at(vars(date, day, station, type), any_vars(sum(is.na(.)))) %>% 
+  assertr::verify(nrow(.) == 0)
 
 # Is unique?
 df_pollen_archives %>% 
