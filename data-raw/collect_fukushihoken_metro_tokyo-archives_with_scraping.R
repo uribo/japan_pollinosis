@@ -1,6 +1,7 @@
 library(purrr)
 library(rvest)
 library(dplyr)
+library(lubridate)
 
 urls <- "http://www.fukushihoken.metro.tokyo.jp/allergy/pollen/archive/"
 
@@ -70,4 +71,19 @@ slow_parse_table <-
 df_pollen_archives <- 
   data_urls %>% 
   purrr::map_dfr(~ slow_parse_table(.)) %>% 
+  mutate(date = if_else(date == "2005-04-09" & day == "木",
+                        ymd("2005-04-07"),
+                        date),
+         date = if_else(date == "2006-02-07" & day == "金",
+                        ymd("2006-02-17"),
+                        date),
+         date = if_else(date == "2009-03-10" & day == "水",
+                        ymd("2009-03-11"),
+                        date)) %>% 
   assertr::verify(dim(.) == c(43992, 6))
+
+# Is unique?
+df_pollen_archives %>% 
+  count(date, type, station) %>% 
+  filter(between(n, 1, 1)) %>% 
+  assertr::verify(nrow(.) == nrow(df_pollen_archives))
