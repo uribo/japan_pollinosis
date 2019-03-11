@@ -85,6 +85,10 @@ df_pollen_archives <-
          date = if_else(date == "2009-03-10" & day == "水",
                         ymd("2009-03-11"),
                         date)) %>% 
+  mutate(station = forcats::fct_relevel(station,
+                                        "青梅", "八王子", "立川", "多摩", "町田",
+                                        "府中", "小平", "杉並", "北", "大田",
+                                        "千代田", "葛飾")) %>% 
   assertr::verify(dim(.) == c(43992, 6))
 
 # Missing value exist?
