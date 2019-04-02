@@ -86,7 +86,8 @@ if (rlang::is_false(file.exists(here::here("data/japan_archives.rds")))) {
       d <- readxl::read_excel(input, 
                               skip = 1, 
                               sheet = 1, 
-                              na = c("-9998", "-9997", "-9996")) %>% 
+                              na = c("-9998", "-9997", "-9996",
+                                     "-9992", "-9991")) %>% 
         dplyr::select(-seq(ncol(.) - 1, ncol(.))) %>% 
         dplyr::mutate_all(as.numeric) %>% 
         mutate(datetime = lubridate::make_datetime(year = `年`, month = `月`, day = `日`, hour = `時`, 
@@ -122,7 +123,8 @@ if (rlang::is_false(file.exists(here::here("data/japan_archives.rds")))) {
                          purrr::map(length),
                        .f = ~ rep(.x, each = .y)) %>% 
         purrr::reduce(c),
-      .f = ~ parse_xls_data(.x, year = .y))
+      .f = ~ parse_xls_data(.x, year = .y)) %>% 
+    reduce(rbind)
   
   df_pollen_archives_moe %>% 
     readr::write_rds(here::here("data/japan_archives.rds"), compress = "xz")
@@ -130,11 +132,6 @@ if (rlang::is_false(file.exists(here::here("data/japan_archives.rds")))) {
   df_pollen_archives_moe <-
     readr::read_rds(here::here("data/japan_archives.rds"))
 }
-
-library(ggplot2)
-ggplot(df_pollen_archives_moe[[1]], 
-       aes(datetime, value, group = station, color = station)) +
-  geom_line()
 
 # 観測地点 --------------------------------------------------------------------
 tidyrup_station_list <- function(df) {
