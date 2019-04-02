@@ -15,7 +15,9 @@ if (rlang::is_false(dir.exists(here::here("data-raw/moe"))))
   dir.create(here::here("data-raw/moe"))
 
 data_archives <- 
-  fs::dir_ls(here::here("data-raw/moe"), recursive = TRUE, regexp = "花粉データ.+(xls|xlsx)$")
+  fs::dir_ls(here::here("data-raw/moe"), 
+             recursive = TRUE, 
+             regexp = "花粉データ.+.(xls|xlsx)$")
 
 if (length(data_archives) < 92) {
   site_url <- "http://kafun.taiki.go.jp/"
@@ -37,23 +39,30 @@ if (length(data_archives) < 92) {
   data_urls %>% 
     purrr::walk(download_zip)
   
-  fs::dir_ls(here::here("data-raw/moe"),
-             regexp = ".zip$") %>%
-    walk(~ unzip(zipfile = .x, exdir = here::here("data-raw/moe")))
+  # fs::dir_ls(here::here("data-raw/moe"),
+  #            regexp = ".zip$") %>%
+  #   walk(~ unzip(zipfile = .x, exdir = here::here("data-raw/moe")))
   
   # Illegal byte sequenceでunzipが成功しない場合は下記を行う
-  # unarコマンドのインストールが必要。macOSなら `brew install unar`
+  # unarコマンドのインストールが必要。
+  # - ubuntuなら `apt-get install unar`
+  # - macOSなら `brew install unar`
   zips <-
     fs::dir_ls(here::here("data-raw/moe"), 
-               regexp = ".zip$")
+               regexp = ".zip$") %>% 
+    ensure_that(length(.) == 92)
   
   zips %>% 
     walk(function(x) {
       system(glue::glue("unar -o {exdir} {zip}", exdir = here::here("data-raw/moe"), zip = x))
+      
+      unlink(x)
     })
   
-  zips %>% 
-    unlink()
+  data_archives <- 
+    fs::dir_ls(here::here("data-raw/moe"), 
+               recursive = TRUE, 
+               regexp = "花粉データ.+.(xls|xlsx)$")
   
 }
 
@@ -109,6 +118,9 @@ df_pollen_archives_moe <-
                    .f = ~ rep(.x, each = .y)) %>% 
     purrr::reduce(c),
   .f = ~ parse_xls_data(.x, year = .y))
+
+df_pollen_archives_moe %>% 
+  readr::write_rds(here::here("data/japan_archives.rds"), compress = "xz")
 
 library(ggplot2)
 ggplot(df_pollen_archives_moe[[1]], aes(datetime, value, group = station, color = station)) +
