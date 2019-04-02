@@ -11,6 +11,12 @@ library(dplyr)
 library(conflicted)
 conflict_prefer("filter", winner = "dplyr")
 
+site_url <- "http://kafun.taiki.go.jp/"
+
+target_page <- 
+  str_c(site_url, "library.html") %>% 
+  read_html(encoding = "cp932")
+
 if (rlang::is_false(file.exists(here::here("data/japan_archives.rds")))) {
   if (rlang::is_false(dir.exists(here::here("data-raw/moe"))))
     dir.create(here::here("data-raw/moe"))
@@ -21,11 +27,9 @@ if (rlang::is_false(file.exists(here::here("data/japan_archives.rds")))) {
                regexp = "花粉.+.(xls|xlsx)$")
   
   if (length(data_archives) < 92) {
-    site_url <- "http://kafun.taiki.go.jp/"
     
     data_urls <- 
-      str_c(site_url, "library.html") %>% 
-      read_html(encoding = "cp932") %>% 
+      target_page %>% 
       html_nodes(css = '#Table5 > tr > td > a') %>% 
       html_attr("href") %>% 
       str_c(site_url, .) %>% 
@@ -133,70 +137,7 @@ ggplot(df_pollen_archives_moe[[1]],
   geom_line()
 
 # 観測地点 --------------------------------------------------------------------
-extract_station_list <- function(table_id, region) {
-  
-  x %>% 
-    html_nodes(css = table_id) %>% 
-    html_table(header = TRUE) %>% 
-    purrr::map2(
-      .x = .,
-      .y = region,
-      .f = ~ tidyrup_station_list(.x, .y))
-}
-
-extract_station_list("#Table9", list(c("北海道", "関東")))
-
-x %>% 
-  html_nodes(css = '#Table9') %>% 
-  html_table(header = TRUE) %>% 
-  purrr::map2(
-    .x = .,
-    .y = c("北海道", "関東"),
-    .f = ~ tidyrup_station_list(.x, .y))
-x %>% 
-  html_nodes(css = '#Table10') %>% 
-  html_table(header = TRUE) %>% 
-  purrr::map2(
-    .x = .,
-    .y = c("東北", "中部"),
-    .f = ~ tidyrup_station_list(.x, .y)
-  )
-
-jpndistrict::jpnprefs %>% 
-  distinct(region, .keep_all = T)
-
-x %>% 
-  html_nodes(css = '#Table11') %>% 
-  html_table(header = TRUE) %>% 
-  purrr::map2(
-    .x = .,
-    .y = c("近畿"),
-    .f = ~ tidyrup_station_list(.x, .y))
-x %>% 
-  html_nodes(css = '#Table12') %>% 
-  html_table(header = TRUE) %>% 
-  purrr::map2(
-    .x = .,
-    .y = list(c("中国", "四国")),
-    .f = ~ tidyrup_station_list(.x, .y))
-x %>% 
-  html_nodes(css = '#Table13') %>% 
-  html_table(header = TRUE) %>% 
-  purrr::map2(
-    .x = .,
-    .y = c("九州"),
-    .f = ~ tidyrup_station_list(.x, .y))
-x %>% 
-  html_nodes(css = '#Table14') %>% 
-  html_table(header = TRUE) %>% 
-  purrr::map2(
-    .x = .,
-    .y = c("九州"),
-    .f = ~ tidyrup_station_list(.x, .y))
-
-tidyrup_station_list <- function(df, region = NULL) {
-  
-  region <- rlang::syms(region)
+tidyrup_station_list <- function(df) {
 
   df_gather <- 
     df %>% 
@@ -207,34 +148,33 @@ tidyrup_station_list <- function(df, region = NULL) {
            note = `備考`) %>% 
     tidyr::gather("year", "status", -pref, -station, -address, -amedas_station, -note) %>% 
     tibble::as_tibble()
-    
+  
   df_gather %>% 
     mutate(status = if_else(str_detect(status, "\u25cb"), TRUE, FALSE)) %>% 
     fuzzyjoin::stringdist_left_join(jpndistrict::jpnprefs %>%
-                                      dplyr::filter(region %in% c(!! region)) %>% 
-                                      dplyr::select(prefecture),
-                                    by = c("pref" = "prefecture"), 
-                                    max_dist = 1,
+                                      dplyr::select(prefecture) %>% 
+                                      dplyr::mutate(mod_pref = str_remove(prefecture, "(県|都|府|)$")),
+                                    by = c("pref" = "mod_pref"), 
+                                    max_dist = 0,
                                     method = "osa") %>% 
-    select(prefecture, station, address, year, status, everything(), -pref) %>% 
+    select(prefecture, station, address, year, status, everything(), -pref, -mod_pref) %>% 
     mutate_at(vars(station, address), stringi::stri_trans_nfkc) %>% 
-    assertr::verify(nrow(.) == nrow(df_gather))
+    assertr::verify(nrow(.) == nrow(df_gather)) %>% 
+    mutate_if(is.character, na_if, y = "-")
 }
 
-tidyrup_station_list(dd[[1]], region = "近畿")
+extract_station_list <- function(target_page, table_id) {
+  
+  target_page %>% 
+    html_nodes(css = table_id) %>% 
+    html_table(header = TRUE) %>% 
+    purrr::map(
+      .x = .,
+      .f = ~ tidyrup_station_list(.x))
+}
 
-ddd <- 
-  dd[[1]] %>% 
-  rename(pref = `都道府県`,
-         station = `設置場所`,
-         address = `所在地`) %>% 
-  tidyr::gather("year", "status", -pref, -station, -address) %>% 
-  mutate(status = if_else(str_detect(status, "\u25cb"), TRUE, FALSE)) %>% 
-  fuzzyjoin::stringdist_left_join(jpndistrict::jpnprefs %>%
-                                    dplyr::filter(region %in% c("近畿")) %>% 
-                                    select(prefecture),
-                        by = c("pref" = "prefecture"), 
-                        max_dist = 1,
-                        method = "osa") %>% 
-  select(prefecture, everything(), -pref)
+# extract_station_list(target_page, "#Table9")
 
+purrr::map(
+  .x = paste0("#Table", seq.int(9, 13)),
+  .f = ~ extract_station_list(target_page = target_page, .x))
