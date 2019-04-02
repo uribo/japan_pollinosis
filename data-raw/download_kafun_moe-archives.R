@@ -22,7 +22,7 @@ if (length(data_archives) < 92) {
   
   data_urls <- 
     str_c(site_url, "library.html") %>% 
-    read_html() %>% 
+    read_html(encoding = "cp932") %>% 
     html_nodes(css = '#Table5 > tr > td > a') %>% 
     html_attr("href") %>% 
     str_c(site_url, .) %>% 
