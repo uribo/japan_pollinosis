@@ -83,7 +83,8 @@ if (rlang::is_false(file.exists(here::here("data/japan_archives.rds")))) {
                  lubridate::as_datetime(tz = "Asia/Tokyo"))
       
     } else if (year %in% seq.int(2006, 2018, by = 1)) {
-      d <- readxl::read_excel(input, 
+      d <- 
+        readxl::read_excel(input, 
                               skip = 1, 
                               sheet = 1, 
                               na = c("-9998", "-9997", "-9996",
@@ -93,10 +94,16 @@ if (rlang::is_false(file.exists(here::here("data/japan_archives.rds")))) {
         mutate(datetime = lubridate::make_datetime(year = `年`, month = `月`, day = `日`, hour = `時`, 
                                                    tz = "Asia/Tokyo")) %>% 
         select(datetime, 5:ncol(.))
+      
+      d <- 
+        d %>% 
+        select_if(list(~ sum(is.na(.)) < nrow(d)))
     } 
     
     d %>% 
-      tidyr::gather(station, value, -datetime)
+      tidyr::gather(station, value, -datetime) %>% 
+      mutate(station = stringr::str_remove_all(station, "\t|\n")) %>% 
+      mutate_if(is.character, stringi::stri_trans_nfkc)
     
   }
   
