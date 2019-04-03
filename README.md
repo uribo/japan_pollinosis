@@ -7,7 +7,7 @@
 
 ## Files
 
-`data-raw/` フォルダ中ののファイルを実行すると各データソースが提供する過去データを取得し、Rで扱いやすい形式 (整形されたdata.frame、rdsファイルとして出力) に変換されます。
+`data-raw/` フォルダ中ののファイルを実行すると各データソースが提供する過去データを取得し、Rで扱いやすい形式 (整形されたdata.frame、csvファイルとして出力) に変換されます。
 
 - `data-raw/collect_fukushihoken_metro_tokyo-archives_with_scraping.R`... 東京都、2001年から2019年、スギおよびヒノキ
 - `data-raw/download_kafun_moe-archives.R`... 全国、2003年から2018年

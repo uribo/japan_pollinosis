@@ -17,7 +17,7 @@ target_page <-
   str_c(site_url, "library.html") %>% 
   read_html(encoding = "cp932")
 
-if (rlang::is_false(file.exists(here::here("data/japan_archives.rds")))) {
+if (rlang::is_false(file.exists(here::here("data/japan_archives.csv")))) {
   if (rlang::is_false(dir.exists(here::here("data-raw/moe"))))
     dir.create(here::here("data-raw/moe"))
   
@@ -132,53 +132,14 @@ if (rlang::is_false(file.exists(here::here("data/japan_archives.rds")))) {
         purrr::reduce(c),
       .f = ~ parse_xls_data(.x, year = .y)) %>% 
     reduce(rbind)
-  
+
   df_pollen_archives_moe %>% 
-    readr::write_rds(here::here("data/japan_archives.rds"), compress = "xz")
+    readr::write_csv(here::here("data/japan_archives.csv"))
+  
+  # df_pollen_archives_moe %>%
+  #   readr::write_rds(here::here("data/japan_archives.rds"), compress = "xz")
+  
 } else {
   df_pollen_archives_moe <-
-    readr::read_rds(here::here("data/japan_archives.rds"))
+    readr::read_csv(here::here("data/japan_archives.csv"))
 }
-
-# 観測地点 --------------------------------------------------------------------
-tidyrup_station_list <- function(df) {
-
-  df_gather <- 
-    df %>% 
-    rename(pref = `都道府県`,
-           station = `設置場所`,
-           address = `所在地`,
-           amedas_station = `最寄のアメダス測定局`,
-           note = `備考`) %>% 
-    tidyr::gather("year", "status", -pref, -station, -address, -amedas_station, -note) %>% 
-    tibble::as_tibble()
-  
-  df_gather %>% 
-    mutate(status = if_else(str_detect(status, "\u25cb"), TRUE, FALSE)) %>% 
-    fuzzyjoin::stringdist_left_join(jpndistrict::jpnprefs %>%
-                                      dplyr::select(prefecture) %>% 
-                                      dplyr::mutate(mod_pref = str_remove(prefecture, "(県|都|府|)$")),
-                                    by = c("pref" = "mod_pref"), 
-                                    max_dist = 0,
-                                    method = "osa") %>% 
-    select(prefecture, station, address, year, status, everything(), -pref, -mod_pref) %>% 
-    mutate_at(vars(station, address), stringi::stri_trans_nfkc) %>% 
-    assertr::verify(nrow(.) == nrow(df_gather)) %>% 
-    mutate_if(is.character, na_if, y = "-")
-}
-
-extract_station_list <- function(target_page, table_id) {
-  
-  target_page %>% 
-    html_nodes(css = table_id) %>% 
-    html_table(header = TRUE) %>% 
-    purrr::map(
-      .x = .,
-      .f = ~ tidyrup_station_list(.x))
-}
-
-# extract_station_list(target_page, "#Table9")
-
-purrr::map(
-  .x = paste0("#Table", seq.int(9, 13)),
-  .f = ~ extract_station_list(target_page = target_page, .x))

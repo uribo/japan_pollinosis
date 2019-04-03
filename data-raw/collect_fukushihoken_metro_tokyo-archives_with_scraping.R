@@ -88,6 +88,7 @@ df_pollen_current <-
   purrr::map_dfr(
     ~ parse_table_data(glue::glue(site_url, "allergy/pollen/data/{target}.html", target = .x),
                        jp_year = "h31")) %>% 
+  filter(date < lubridate::make_date(2019, 4, 1)) %>% 
   assertr::verify(dim(.) == c(2088, 6))
 
 # 過去 ----------------------------------------------------------------------
@@ -144,4 +145,4 @@ df_pollen_archives %>%
 df_pollen_current %>%
   bind_rows(df_pollen_archives) %>%
   arrange(type, date, station) %>% 
-  readr::write_rds(here::here("data/tokyo_archives.rds"), compress = "xz")
+  readr::write_csv(here::here("data/tokyo_archives.csv"))
