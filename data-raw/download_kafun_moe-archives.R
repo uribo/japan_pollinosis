@@ -101,6 +101,7 @@ if (rlang::is_false(file.exists(here::here("data/japan_archives.csv")))) {
     } 
     
     d %>% 
+      filter(!is.na(datetime)) %>% 
       tidyr::gather(station, value, -datetime) %>% 
       mutate(station = stringr::str_remove_all(station, "\t|\n")) %>% 
       mutate_if(is.character, stringi::stri_trans_nfkc)
@@ -131,7 +132,8 @@ if (rlang::is_false(file.exists(here::here("data/japan_archives.csv")))) {
                        .f = ~ rep(.x, each = .y)) %>% 
         purrr::reduce(c),
       .f = ~ parse_xls_data(.x, year = .y)) %>% 
-    reduce(rbind)
+    reduce(rbind) %>% 
+    assertr::verify(dim(.) == c(5212022, 3))
 
   df_pollen_archives_moe %>% 
     readr::write_csv(here::here("data/japan_archives.csv"))
