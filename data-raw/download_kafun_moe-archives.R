@@ -97,7 +97,7 @@ if (rlang::is_false(file.exists(here::here("data/japan_archives.csv")))) {
       
       d <- 
         d %>% 
-        select_if(list(~ sum(is.na(.)) < nrow(d)))
+        select_if(list(~ sum(is.na(.)) != nrow(d)))
     } 
     
     d %>% 
@@ -134,13 +134,13 @@ if (rlang::is_false(file.exists(here::here("data/japan_archives.csv")))) {
       .f = ~ parse_xls_data(.x, year = .y)) %>% 
     reduce(rbind) %>% 
     assertr::verify(dim(.) == c(5212022, 3))
-
+  
+  df_pollen_archives_moe %>% 
+    filter(is.na(datetime)) %>% 
+    assertr::verify(nrow(.) == 0)
+  
   df_pollen_archives_moe %>% 
     readr::write_csv(here::here("data/japan_archives.csv"))
-  
-  # df_pollen_archives_moe %>%
-  #   readr::write_rds(here::here("data/japan_archives.rds"), compress = "xz")
-  
 } else {
   df_pollen_archives_moe <-
     readr::read_csv(here::here("data/japan_archives.csv"))
