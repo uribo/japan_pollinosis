@@ -1,4 +1,4 @@
-FROM rocker/tidyverse:3.5.3
+FROM rocker/geospatial:3.5.3
 
 RUN set -x && \
   apt-get update && \
@@ -14,10 +14,18 @@ RUN set -x && \
 
 RUN set -x && \
   install2.r --error \
+    anytime \
     assertr \
     conflicted \
     ensurer \
-    fuzzyjoin & \
+    fuzzyjoin \
+    gghighlight \
+    ggridges \
+    jpndistrict \
+    tsibble && \
   installGithub.r \
-    "uribo/odkitchen" && \
+    "abikoushi/ggbrick" \
+    "uribo/odkitchen" \
+    "tidyverse/dplyr@v0.8.0.1" \
+    "tidyverts/fable" && \
   rm -rf /tmp/downloaded_packages/ /tmp/*.rds
