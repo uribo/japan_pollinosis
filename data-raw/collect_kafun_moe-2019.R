@@ -101,7 +101,8 @@ collect_tbl_data <- function(remDr) {
                        "value",
                        "amedas_wind_direction", "amedas_wind_speed",
                        "amedas_temperature", "amedas_precipitation",
-                       "rader"))
+                       "rader")) %>% 
+    dplyr::mutate(date = lubridate::as_date(date))
   
   remDr$goBack()
   
