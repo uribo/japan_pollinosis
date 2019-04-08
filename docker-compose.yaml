@@ -11,3 +11,9 @@ services:
       - ".:/home/rstudio/japan_pollinosis"
     environment: 
       PASSWORD: ${PASSWORD}
+    links:
+      - "selenium:selenium"
+  selenium:
+    image: "selenium/standalone-chrome:3.14.0@sha256:b3cd083132dc390a9f623223b45db66a44b043c2ba1e962b85a2004f67bc0831"
+    ports:
+      - "4445:4444"
