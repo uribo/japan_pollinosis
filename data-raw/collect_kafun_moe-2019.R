@@ -4,6 +4,7 @@
 ##############################
 library(RSelenium)
 library(purrr)
+library(assertr)
 library(ensurer)
 library(rvest)
 
@@ -124,10 +125,27 @@ target_areas <-
 df_moe2019 <- 
   seq.int(1, length(target_areas)) %>% 
   purrr::map_dfr(~ select_station(remDr, .x) %>% 
-               collect_tbl_data())
+               collect_tbl_data()) %>% 
+  verify(dim(.) == c(161499, 14))
+
+library(dplyr)
+invisible(
+  df_moe2019 %>% 
+    distinct(pref_code, prefecture) %>% 
+    verify(nrow(.) == 47L))
+
+invisible(
+  df_moe2019 %>% 
+    map_dbl(
+      ~sum(is.na(.))) %>% 
+    unique() %>% 
+    ensure(length(.) == 1L))
+
+# df_moe2019 %>% 
+#   readr::write_csv(here::here("data/japan_archives2019.csv"))
 
 df_moe2019 %>% 
-  readr::write_csv(here::here("data/japan_archives2019.csv"))
+  readr::write_rds(here::here("data/japan_archives2019.rds"), compress = "xz")
 
 # close -------------------------------------------------------------------
 remDr$close()
