@@ -9,6 +9,8 @@ if (rlang::is_false(file.exists(here::here("data/japan_archives2019.rds")))) {
   library(assertr)
   library(ensurer)
   library(rvest)
+  library(conflicted)
+  conflict_prefer("pluck", winner = "purrr")
   
   rD <- rsDriver(verbose = FALSE, 
                  port = 4445L)
@@ -91,9 +93,9 @@ if (rlang::is_false(file.exists(here::here("data/japan_archives2019.rds")))) {
     
     d <- 
       remDr$getPageSource()[[1]] %>%
-      read_html() %>%
-      html_nodes(css = "#dgd1") %>%
-      html_table(fill = TRUE, header = FALSE) %>%
+      xml2::read_html() %>%
+      rvest::html_nodes(css = "#dgd1") %>%
+      rvest::html_table(fill = TRUE, header = FALSE) %>%
       purrr::reduce(rbind) %>%
       tibble::as_tibble() %>% 
       dplyr::slice(-seq(1, 2)) %>% 
@@ -105,7 +107,7 @@ if (rlang::is_false(file.exists(here::here("data/japan_archives2019.rds")))) {
                          "amedas_temperature", "amedas_precipitation",
                          "rader")) %>% 
       dplyr::mutate(date = lubridate::as_date(date)) %>% 
-      dplyr::mutate(value = na_if(value, "欠測") %>% as.numeric())
+      dplyr::mutate(value = dplyr::na_if(value, "欠測") %>% as.numeric())
     
     remDr$goBack()
     
