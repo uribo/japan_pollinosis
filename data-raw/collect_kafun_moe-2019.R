@@ -6,6 +6,7 @@ if (rlang::is_false(file.exists(here::here("data/japan_archives2019.rds")))) {
 
   library(RSelenium)
   library(purrr)
+  library(dplyr)
   library(assertr)
   library(ensurer)
   library(rvest)
@@ -138,7 +139,6 @@ if (rlang::is_false(file.exists(here::here("data/japan_archives2019.rds")))) {
                      collect_tbl_data()) %>% 
     verify(dim(.) == c(161499, 14))
   
-  library(dplyr)
   invisible(
     df_moe2019 %>% 
       distinct(pref_code, prefecture) %>% 
