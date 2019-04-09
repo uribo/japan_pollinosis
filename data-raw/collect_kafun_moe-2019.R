@@ -107,7 +107,11 @@ if (rlang::is_false(file.exists(here::here("data/japan_archives2019.rds")))) {
                          "amedas_temperature", "amedas_precipitation",
                          "rader")) %>% 
       dplyr::mutate(date = lubridate::as_date(date)) %>% 
-      dplyr::mutate(value = dplyr::na_if(value, "欠測") %>% as.numeric())
+      dplyr::mutate(value = dplyr::na_if(value, "欠測") %>% as.numeric()) %>% 
+      dplyr::mutate_if(is.character, stringi::stri_trans_nfkc) %>% 
+      dplyr::mutate(station = dplyr::recode(
+        station,
+        `株式会社江東微生物研究所 微研 東北中央研究所` = "株式会社江東微生物研究所 東北中央研究所"))
     
     remDr$goBack()
     
