@@ -124,10 +124,10 @@ if (rlang::is_false(file.exists(here::here("data/japan_archives2019.rds")))) {
   
   # select_station(remDr, 1) %>%
   #   collect_tbl_data()
-  
   # remDr$goBack()
   # remDr$getCurrentUrl()
   
+  # ~ 1.5hour
   df_moe2019 <- 
     seq.int(1, length(target_areas)) %>% 
     purrr::map_dfr(~ select_station(remDr, .x) %>% 
