@@ -109,10 +109,7 @@ if (rlang::is_false(file.exists(here::here("data/japan_archives2019.rds")))) {
                          "rader")) %>% 
       dplyr::mutate(date = lubridate::as_date(date)) %>% 
       dplyr::mutate(value = dplyr::na_if(value, "欠測") %>% as.numeric()) %>% 
-      dplyr::mutate_if(is.character, stringi::stri_trans_nfkc) %>% 
-      dplyr::mutate(station = dplyr::recode(
-        station,
-        `株式会社江東微生物研究所 微研 東北中央研究所` = "株式会社江東微生物研究所 東北中央研究所"))
+      dplyr::mutate_if(is.character, stringi::stri_trans_nfkc)
     
     remDr$goBack()
     
@@ -138,6 +135,27 @@ if (rlang::is_false(file.exists(here::here("data/japan_archives2019.rds")))) {
     purrr::map_dfr(~ select_station(remDr, .x) %>% 
                      collect_tbl_data()) %>% 
     verify(dim(.) == c(161499, 14))
+  
+  df_moe2019 <- 
+    df_moe2019 %>% 
+    dplyr::mutate(city_code = dplyr::if_else(city_code == "22201",
+                                             "22101",
+                                             city_code),
+                  city = dplyr::if_else(city == "兵庫県加古川市",
+                                      "加古川市",
+                                      city),
+                  #cityがcity_codeになってしまう...
+                city = dplyr::if_else(city_code == "27128",
+                                     "大阪市中央区",
+                                     if_else(city_code == "22101",
+                                             "静岡市葵区",
+                                             if_else(city_code == "43201",
+                                                     "熊本市中央区",
+                                                     city)),
+                                     city),
+                station = dplyr::recode(
+                  station,
+                  `株式会社江東微生物研究所 微研 東北中央研究所` = "株式会社江東微生物研究所 東北中央研究所"))
   
   invisible(
     df_moe2019 %>% 

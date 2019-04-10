@@ -25,7 +25,7 @@ RUN set -x && \
     tsibble && \
   installGithub.r \
     "abikoushi/ggbrick" \
+    "r-lib/rlang" \
     "uribo/odkitchen" \
-    "tidyverse/dplyr@v0.8.0.1" \
     "tidyverts/fable" && \
   rm -rf /tmp/downloaded_packages/ /tmp/*.rds
