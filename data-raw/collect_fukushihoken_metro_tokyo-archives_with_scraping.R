@@ -8,10 +8,8 @@ library(dplyr)
 library(lubridate)
 
 collect_table_data <- function(url) {
-  
   check <- 
     stringr::str_detect(url, "archive/h[0-9]{2}")
-  
   if (rlang::is_true(check)) {
     url %>% 
       xml2::read_html() %>% 
@@ -25,27 +23,31 @@ collect_table_data <- function(url) {
       rvest::html_nodes(css = '#hisan > div > table') %>% 
       rvest::html_table(header = TRUE) %>% 
       purrr::keep(~ nrow(.) > 1 & ncol(.) == 14) %>% 
+      purrr::map(
+       ~ .x %>% 
+         purrr::set_names(c("日付", "曜日",
+                            as.character(forcats::fct_drop(station_list))))
+      ) %>% 
       purrr::reduce(rbind) %>% 
       tibble::as_tibble()
   }
 }
 
 parse_table_data <- function(url, jp_year) {
-  
   x <- 
     collect_table_data(url)
-  
   x <- 
     x %>% 
     purrr::set_names(
       names(x) %>% 
         dplyr::recode(`日付` = "date", `曜日` = "day"))
-  
   x %>% 
     dplyr::mutate(date = lubridate::as_date(
-      stringr::str_c(odkitchen::convert_jyr(jp_year), 
+      stringr::str_c(zipangu::convert_jyear(jp_year), 
                      "/", date))) %>% 
-    tidyr::gather(station, value, -date, -day) %>% 
+    tidyr::pivot_longer(cols = seq.int(3, ncol(.)), 
+                        names_to = "station", 
+                        values_to = "value") %>% 
     dplyr::mutate(
       day = factor(day, 
                    levels = readr::locale(date_names = "ja") %>% 
@@ -75,21 +77,28 @@ parse_table_data <- function(url, jp_year) {
                         )) %>% 
     tidyr::fill(date) %>% 
     mutate(station = forcats::fct_relevel(station,
-                                          "青梅", "八王子", "立川", "多摩", "町田",
-                                          "府中", "小平", "杉並", "北", "大田",
-                                          "千代田", "葛飾"))
+                                          levels(station_list)))
 }
 
-site_url <- "http://www.fukushihoken.metro.tokyo.jp/"
+site_url <- "https://www.fukushihoken.metro.tokyo.lg.jp/"
+station_list <- c("千代田", "葛飾", "杉並", "北", "大田",
+                  "青梅", "八王子", "多摩", "町田", "立川", 
+                  "府中", "小平") %>% 
+  forcats::as_factor() %>% 
+  forcats::fct_relevel(c("青梅", "八王子", "立川", "多摩", "町田",
+                         "府中", "小平", "杉並", "北", "大田",
+                         "千代田", "葛飾"))
 
-# 2019 ----------------------------------------------------------------------
+# 2020 ----------------------------------------------------------------------
 df_pollen_current <- 
   c("cedar", "japanese_cypress") %>% 
   purrr::map_dfr(
-    ~ parse_table_data(glue::glue(site_url, "allergy/pollen/data/{target}.html", target = .x),
-                       jp_year = "h31")) %>% 
-  filter(date < lubridate::make_date(2019, 4, 1)) %>% 
-  assertr::verify(dim(.) == c(2088, 6))
+    ~ parse_table_data(glue::glue(site_url, 
+                                  "allergy/pollen/data/{target}.html", 
+                                  target = .x),
+                       jp_year = "r2")) %>% 
+  filter(date < lubridate::make_date(2020, 4, 1)) %>% 
+  assertr::verify(dim(.) == c(1056, 6))
 
 # 過去 ----------------------------------------------------------------------
 urls <- "allergy/pollen/archive/"
@@ -102,7 +111,7 @@ data_urls <-
   html_attr("href") %>% 
   stringr::str_subset("cedar|japanese_cypress") %>% 
   stringr::str_c(site_url, urls, .) %>% 
-  ensurer::ensure(length(.) == 28)
+  ensurer::ensure(length(.) == 30L)
 
 slow_parse_table <- 
   slowly(~ parse_table_data(.x,
@@ -120,10 +129,11 @@ df_pollen_archives <-
          date = if_else(date == "2006-02-07" & day == "金",
                         ymd("2006-02-17"),
                         date),
+         # 2009-03-10 --> /31/ --> 2009-03-12	
          date = if_else(date == "2009-03-10" & day == "水",
                         ymd("2009-03-11"),
-                        date)) %>% 
-  assertr::verify(dim(.) == c(43992, 6))
+                        date)) #%>% 
+  # assertr::verify(dim(.) == c(43992, 6))
 
 # Missing value exist?
 df_pollen_archives %>% 
@@ -132,7 +142,8 @@ df_pollen_archives %>%
 
 # Complete case?
 df_pollen_archives %>% 
-  filter_at(vars(date, day, station, type), any_vars(sum(is.na(.)))) %>% 
+  filter_at(vars(date, day, station, type), 
+            any_vars(sum(is.na(.)))) %>% 
   assertr::verify(nrow(.) == 0)
 
 # Is unique?
