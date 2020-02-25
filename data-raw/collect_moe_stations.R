@@ -2,14 +2,14 @@
 # 環境省 環境省花粉観測システム
 # 測定局
 ###############################
+site_url <- "http://kafun.taiki.go.jp/"
+target_page <- 
+  str_c(site_url, "library.html") %>% 
+  read_html(encoding = "cp932")
 if (rlang::is_false(file.exists(here::here("data/moe_stations.csv")))) {
   library(rvest)
   library(stringr)
   library(dplyr)
-  site_url <- "http://kafun.taiki.go.jp/"
-  target_page <- 
-    str_c(site_url, "library.html") %>% 
-    read_html(encoding = "cp932")
   # 観測地点 --------------------------------------------------------------------
   tidyrup_station_list <- function(df) {
     df_gather <- 
