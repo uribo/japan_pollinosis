@@ -12,7 +12,7 @@ library(conflicted)
 source(here::here("data-raw/collect_moe_stations.R"))
 conflict_prefer("filter", winner = "dplyr")
 
-if (rlang::is_false(file.exists(here::here("data/japan_archives.csv")))) {
+if (rlang::is_false(file.exists(here::here("data/japan_archives.rds")))) {
   if (rlang::is_false(dir.exists(here::here("data-raw/moe"))))
     dir.create(here::here("data-raw/moe"))
   data_archives <- 
@@ -117,8 +117,9 @@ if (rlang::is_false(file.exists(here::here("data/japan_archives.csv")))) {
     filter(is.na(datetime)) %>% 
     assertr::verify(nrow(.) == 0)
   df_pollen_archives_moe %>% 
-    readr::write_csv(here::here("data/japan_archives.csv"))
+    readr::write_rds(here::here("data/japan_archives.rds"), 
+                     compress = "xz")
 } else {
   df_pollen_archives_moe <-
-    readr::read_csv(here::here("data/japan_archives.csv"))
+    readr::read_rds(here::here("data/japan_archives.rds"))
 }
