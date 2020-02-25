@@ -5,3 +5,4 @@
 .env
 *.xls
 *.xlsx
+.DS_Store

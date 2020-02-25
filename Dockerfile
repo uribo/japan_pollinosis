@@ -1,4 +1,4 @@
-FROM rocker/geospatial:3.5.3
+FROM rocker/geospatial:3.6.2
 
 RUN set -x && \
   apt-get update && \
@@ -13,19 +13,6 @@ RUN set -x && \
   echo "GITHUB_PAT=$GITHUB_PAT" >> /usr/local/lib/R/etc/Renviron
 
 RUN set -x && \
-  install2.r --error \
-    anytime \
-    assertr \
-    conflicted \
-    ensurer \
-    fuzzyjoin \
-    gghighlight \
-    ggridges \
-    jpndistrict \
-    tsibble && \
-  installGithub.r \
-    "abikoushi/ggbrick" \
-    "r-lib/rlang" \
-    "uribo/odkitchen" \
-    "tidyverts/fable" && \
+  install2.r --error --skipinstalled --repos 'http://mran.revolutionanalytics.com/snapshot/2020-02-15' \
+    renv && \
   rm -rf /tmp/downloaded_packages/ /tmp/*.rds
