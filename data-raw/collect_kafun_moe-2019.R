@@ -2,8 +2,7 @@
 # docker起動状態で行う
 # 以下のコードはローカルで実行
 ##############################
-if (rlang::is_false(file.exists(here::here("data/japan_archives2019.rds")))) {
-
+if (rlang::is_false(file.exists(here::here("data/japan_archives2020.rds")))) {
   library(RSelenium)
   library(purrr)
   library(dplyr)
@@ -11,56 +10,50 @@ if (rlang::is_false(file.exists(here::here("data/japan_archives2019.rds")))) {
   library(ensurer)
   library(rvest)
   library(conflicted)
+  conflict_prefer("filter", winner = "dplyr")
   conflict_prefer("pluck", winner = "purrr")
   
-  rD <- rsDriver(verbose = FALSE, 
-                 port = 4445L)
+  .chromever = "79.0.3945.36"
+  rD <- RSelenium::rsDriver(browser = "chrome",
+                            chromever = .chromever,
+                            verbose = TRUE); Sys.sleep(4)
   remDr <- rD[["client"]]
   
   # データ収集期間・地域を指定 ----------------------------------------------------------------------
   # 20190201 (1時) ~ 20190331 (24時)
   # 地域によって異なるので注意
   remDr$navigate("http://kafun.taiki.go.jp/DownLoad1.aspx")
-  
   webElem <- 
     remDr$findElement("css selector",
                       "#ddlStartYear")
-  
   webElem$getElementText() %>%
     unlist() %>%
-    ensure(stringr::str_detect(., "2019"))
-  
+    ensure(stringr::str_detect(., "2020"))
   webElem <-
     remDr$findElement("css selector",
                       "#ddlStartMonth > option:nth-child(2)")
   # webElem$getElementText()
   webElem$clickElement()
-  
   webElem <-
     remDr$findElement("css selector",
                       "#ddlStartDay > option:nth-child(1)")
   webElem$clickElement()
-  
   webElem <-
     remDr$findElement("css selector",
                       "#ddlStartHour > option:nth-child(1)")
   webElem$clickElement()
-  
   webElem <-
     remDr$findElement("css selector",
                       "#ddlEndYear")
   webElem$getElementText()
-  
   webElem <-
     remDr$findElement("css selector",
                       "#ddlEndMonth > option:nth-child(3)")
   webElem$clickElement()
-  
   webElem <-
     remDr$findElement("css selector",
                       "#ddlEndDay > option:nth-child(31)")
   webElem$clickElement()
-  
   webElem <-
     remDr$findElement("css selector",
                       "#ddlEndHour > option:nth-child(24)")
@@ -73,7 +66,6 @@ if (rlang::is_false(file.exists(here::here("data/japan_archives2019.rds")))) {
                         glue::glue("#ddlArea > option:nth-child({nth})"))
     # webElem$getElementText()
     webElem$clickElement()
-    
     webElem <-
       remDr$findElement("css selector",
                         "#CheckBoxMstList")
@@ -91,7 +83,6 @@ if (rlang::is_false(file.exists(here::here("data/japan_archives2019.rds")))) {
   }
   
   collect_tbl_data <- function(remDr) {
-    
     d <- 
       remDr$getPageSource()[[1]] %>%
       xml2::read_html() %>%
@@ -110,12 +101,11 @@ if (rlang::is_false(file.exists(here::here("data/japan_archives2019.rds")))) {
       dplyr::mutate(date = lubridate::as_date(date)) %>% 
       dplyr::mutate(value = dplyr::na_if(value, "欠測") %>% as.numeric()) %>% 
       dplyr::mutate_if(is.character, stringi::stri_trans_nfkc)
-    
     remDr$goBack()
-    
     d
   }
   
+  # 北海道のデータは後から
   target_areas <- 
     remDr$getPageSource()[[1]] %>%
     read_html() %>% 
@@ -130,14 +120,14 @@ if (rlang::is_false(file.exists(here::here("data/japan_archives2019.rds")))) {
   # remDr$getCurrentUrl()
   
   # ~ 1.5hour
-  df_moe2019 <- 
-    seq.int(1, length(target_areas)) %>% 
+  df_moe2020 <- 
+    seq.int(2, 2) %>% 
     purrr::map_dfr(~ select_station(remDr, .x) %>% 
-                     collect_tbl_data()) %>% 
-    verify(dim(.) == c(161499, 14))
+                     collect_tbl_data())# %>% 
+    #verify(dim(.) == c(161499, 14))
   
-  df_moe2019 <- 
-    df_moe2019 %>% 
+  df_moe2020 <- 
+    df_moe2020 %>% 
     dplyr::mutate(city_code = dplyr::if_else(city_code == "22201",
                                              "22101",
                                              city_code),
@@ -156,35 +146,28 @@ if (rlang::is_false(file.exists(here::here("data/japan_archives2019.rds")))) {
                 station = dplyr::recode(
                   station,
                   `株式会社江東微生物研究所 微研 東北中央研究所` = "株式会社江東微生物研究所 東北中央研究所"))
-  
   invisible(
-    df_moe2019 %>% 
+    df_moe2020 %>% 
       distinct(pref_code, prefecture) %>% 
       verify(nrow(.) == 47L))
-  
   invisible(
-    df_moe2019 %>% 
+    df_moe2020 %>% 
       map_dbl(
         ~sum(is.na(.))) %>% 
       unique() %>% 
       ensure(length(.) == 2L))
   invisible(
-    df_moe2019 %>% 
+    df_moe2020 %>% 
       pull(value) %>% 
       is.na() %>% 
       sum() %>% 
       ensure(. == 395L))
-  
-  # df_moe2019 %>% 
-  #   readr::write_csv(here::here("data/japan_archives2019.csv"))
-  
-  df_moe2019 %>% 
-    readr::write_rds(here::here("data/japan_archives2019.rds"), compress = "xz")
-  
+  df_moe2020 %>% 
+    readr::write_rds(here::here("data/japan_archives2020.rds"), compress = "xz")
   # close -------------------------------------------------------------------
   remDr$close()
   rD[["server"]]$stop()
 } else {
-  df_moe2019 <- 
-    readr::read_rds(here::here("data/japan_archives2019.rds"))
+  df_moe2020 <- 
+    readr::read_rds(here::here("data/japan_archives2020.rds"))
 }
