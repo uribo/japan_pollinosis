@@ -62,9 +62,12 @@ if (rlang::is_false(file.exists(here::here("data/moe_stations.csv")))) {
     select(station_id, everything())
   df_moe_stations <- 
     df_moe_stations %>% 
-    dplyr::mutate(address = dplyr::if_else(prefecture == "千葉県" & stringr::str_detect(address, "^千葉県成田市$"),
-                          stringr::str_remove(address, "千葉県"),
-                          address))
+    dplyr::mutate(address = dplyr::recode(
+      address,
+      `千葉県成田市加良部3-3-1` = "成田市加良部3-3-1",
+      `徳島県阿南市領家町野神319` = "阿南市領家町野神319",
+      `熊本市本荘5-15-18` = "熊本市中央区本荘5-15-18",
+    ))
   df_moe_stations %>% 
     readr::write_csv(here::here("data/moe_stations.csv"))
 } else {
