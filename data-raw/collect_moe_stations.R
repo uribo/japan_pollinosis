@@ -4,8 +4,8 @@
 ###############################
 site_url <- "http://kafun.taiki.go.jp/"
 target_page <- 
-  str_c(site_url, "library.html") %>% 
-  read_html(encoding = "cp932")
+  xml2::read_html(stringr::str_c(site_url, "library.html"),
+                  encoding = "cp932")
 if (rlang::is_false(file.exists(here::here("data/moe_stations.csv")))) {
   library(rvest)
   library(stringr)
@@ -60,6 +60,11 @@ if (rlang::is_false(file.exists(here::here("data/moe_stations.csv")))) {
     assertr::verify(nrow(.) == 120L) %>% 
     mutate(station_id = row_number()) %>% 
     select(station_id, everything())
+  df_moe_stations <- 
+    df_moe_stations %>% 
+    dplyr::mutate(address = dplyr::if_else(prefecture == "千葉県" & stringr::str_detect(address, "^千葉県成田市$"),
+                          stringr::str_remove(address, "千葉県"),
+                          address))
   df_moe_stations %>% 
     readr::write_csv(here::here("data/moe_stations.csv"))
 } else {
