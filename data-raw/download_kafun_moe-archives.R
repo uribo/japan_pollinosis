@@ -9,7 +9,7 @@ library(purrr)
 library(ensurer)
 library(dplyr)
 library(conflicted)
-source(here::here("data-raw/collect_moe_stations.R"))
+source(here::here("data-raw/collect_moe_stations.R")) # df_moe_stations
 conflict_prefer("filter", winner = "dplyr")
 
 if (rlang::is_false(file.exists(here::here("data/japan_archives.rds")))) {
@@ -116,6 +116,11 @@ if (rlang::is_false(file.exists(here::here("data/japan_archives.rds")))) {
   df_pollen_archives_moe %>% 
     filter(is.na(datetime)) %>% 
     assertr::verify(nrow(.) == 0)
+  invisible(
+    df_pollen_archives_moe %>% 
+      pull(station) %>% 
+      n_distinct() %>% 
+      ensure(all.equal(., 333L)))
   df_pollen_archives_moe %>% 
     readr::write_rds(here::here("data/japan_archives.rds"), 
                      compress = "xz")
@@ -123,3 +128,11 @@ if (rlang::is_false(file.exists(here::here("data/japan_archives.rds")))) {
   df_pollen_archives_moe <-
     readr::read_rds(here::here("data/japan_archives.rds"))
 }
+
+# # 古い名称で記録されている
+# df_pollen_archives_moe %>% 
+#   #distinct(station) %>% 
+#   filter(str_detect(station, "長崎大学")) %>% 
+#   count(datetime, sort = TRUE)
+
+

@@ -2,6 +2,7 @@
 # 環境省 環境省花粉観測システム
 # 測定局
 ###############################
+library(dplyr)
 site_url <- "http://kafun.taiki.go.jp/"
 target_page <- 
   xml2::read_html(stringr::str_c(site_url, "library.html"),
@@ -9,7 +10,6 @@ target_page <-
 if (rlang::is_false(file.exists(here::here("data/moe_stations.csv")))) {
   library(rvest)
   library(stringr)
-  library(dplyr)
   # 観測地点 --------------------------------------------------------------------
   tidyrup_station_list <- function(df) {
     df_gather <- 
@@ -68,6 +68,10 @@ if (rlang::is_false(file.exists(here::here("data/moe_stations.csv")))) {
       `徳島県阿南市領家町野神319` = "阿南市領家町野神319",
       `熊本市本荘5-15-18` = "熊本市中央区本荘5-15-18",
     ))
+  invisible(
+    df_moe_stations %>% 
+      filter(stringr::str_detect(note, "名称変更")) %>% 
+      assertr::verify(nrow(.) == 2L))
   df_moe_stations %>% 
     readr::write_csv(here::here("data/moe_stations.csv"))
 } else {
@@ -75,3 +79,32 @@ if (rlang::is_false(file.exists(here::here("data/moe_stations.csv")))) {
     readr::read_csv(here::here("data/moe_stations.csv"),
                     col_types = c("dccccc"))
 }
+
+df_moe_stations_old <- 
+  df_moe_stations %>% 
+  select(station_id, prefecture, station, note) %>% 
+  filter(!is.na(note)) %>% 
+  distinct(prefecture, station, note, .keep_all = TRUE) %>% 
+  # 元のstationは原則noteに記載される
+  tidyr::separate(col = note, into = c("translate_year", "old_station"), sep = "度に")
+df_moe_stations_old <- 
+  df_moe_stations_old %>% 
+  filter(!old_station %in% c("名称変更", "構内移設")) %>% 
+  mutate(old_station = stringr::str_remove(old_station, "(から|より)(移転|移設|。)")) %>% 
+  bind_rows(
+    df_moe_stations_old %>% 
+      filter(old_station %in% c("名称変更", "構内移設")) %>% 
+      mutate(old_station = case_when(
+        prefecture == "長崎県" & old_station == "構内移設" ~ "長崎大学医学部付属病院", 
+        prefecture == "長崎県" & old_station == "名称変更" ~ "社団法人全国社会保険協会連合会健康保険諫早総合病院検査部",
+        prefecture == "大分県" & old_station == "名称変更" ~ "大分県農林水産研究センター林業試験場"))
+  ) %>% 
+  arrange(station_id)
+df_moe_stations <-
+  df_moe_stations %>% 
+  select(-note) %>% 
+  left_join(df_moe_stations_old, by = c("station_id", "prefecture", "station")) %>% 
+  assertr::verify(nrow(.) == 120L) %>% 
+  assertr::verify(assertr::has_all_names("station_id", "prefecture", "station",
+                                         "address", "amedas_station", "translate_year", "old_station"))
+rm(df_moe_stations_old)
