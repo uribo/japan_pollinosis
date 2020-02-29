@@ -238,7 +238,3 @@ if (file.exists(here::here("data/moe_stations_location.csv")) == FALSE) {
     readr::read_csv(here::here("data/moe_stations_location.csv"),
                     col_types = c("cccdd"))
 }
-
-df_moe_stations_location %>%
-  sf::st_as_sf(coords = c("longitude", "latitude"), crs = 4326) %>%
-  mapview::mapview()
