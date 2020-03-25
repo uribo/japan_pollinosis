@@ -14,20 +14,55 @@ if (file.exists(here::here("data/moe_stations_location.csv")) == FALSE) {
   library(assertr)
   library(kuniumi)
   library(stringr)
+  library(data.table)
+  library(bit64)
   # ファイルサイズが大きくなる(rds xz format...78.6MB)ので保存はしない
   # ~ 5 min
+  if (dir.exists(here::here("data-raw/isj_pos0_h30/")) == FALSE) {
+    dir.create(here::here("data-raw/isj_pos0_h30/"))
+    seq.int(1, 47) %>% 
+      stringr::str_pad(width = 2, pad = "0") %>% 
+      purrr::walk(
+        ~ {
+          kuniumi::read_isj(.fiscal_year = "平成30年",
+                            .area_code = paste0(.x, "000"),
+                            .pos_level = 0,
+                            .download = TRUE,
+                            return_class = "data.table")
+          fs::dir_copy(here::here(paste0(.x, "000-17.0a")),
+                       here::here("data-raw/isj_pos0_h30", paste0(.x, "000-17.0a")))
+          unlink(here::here(paste0(.x, "000-17.0a.zip")))
+          unlink(here::here(paste0(.x, "000-17.0a")), recursive = TRUE)
+        })
+    dir.create(here::here("data-raw/isj_pos1_h30/"))
+    seq.int(1, 47) %>% 
+      stringr::str_pad(width = 2, pad = "0") %>% 
+      purrr::walk(
+        ~ {
+          kuniumi::read_isj(.fiscal_year = "平成30年",
+                            .area_code = paste0(.x, "000"),
+                            .pos_level = 1,
+                            .download = TRUE,
+                            return_class = "data.table")
+          fs::dir_copy(here::here(paste0(.x, "000-12.0b")),
+                       here::here("data-raw/isj_pos1_h30", 
+                                  paste0(.x, "000-12.0a")))
+          unlink(here::here(paste0(.x, "000-12.0b.zip")))
+          unlink(here::here(paste0(.x, "000-12.0b")), recursive = TRUE)
+        })
+  }
   df_isj_a <- 
-    fs::dir_ls("~/Documents/projects2019/jp-address/data-raw/位置参照情報/街区レベル/h30/",
-               recurse = TRUE,
-               regexp = "[0-9]{5}_2018.csv") %>% 
+    fs::dir_ls(here::here("data-raw/isj_pos0_h30/"),
+             recurse = TRUE,
+             regexp = "[0-9]{2}_2018.csv") %>% 
+    ensurer::ensure(length(.) == 47L) %>% 
     purrr::map_dfr(
       ~ read_isj(.x, return_class = "data.table")) %>% 
     verify(dim(.) == c(19603996, 14)) %>% 
     .[, list(prefecture, city, street_lv1, street_lv1b, street_lv3, cs_num, latitude, longitude, flag_represent)]
   # df_isj_a[city == "つくば市" & stringr::str_detect(street_lv1, "小野川")]
-  # ~ 1 min
   df_isj_b <- 
-    fs::dir_ls("~/Documents/projects2019/jp-address/data-raw/位置参照情報/大字・町丁目レベル/h30/",
+    fs::dir_ls(here::here("data-raw/isj_pos1_h30/"),
                regexp = ".csv$", 
                recurse = TRUE) %>% 
     purrr::map_dfr(

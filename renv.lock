@@ -125,6 +125,20 @@
       "Repository": "CRAN",
       "Hash": "f8a259d8fa0fe4a8a87786e47a8e3081"
     },
+    "bit": {
+      "Package": "bit",
+      "Version": "1.1-15.2",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "eb6c52d8cc44463085a4cde1c63df163"
+    },
+    "bit64": {
+      "Package": "bit64",
+      "Version": "0.9-7",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "3338d4a9b1352f5a613e2bdcefe784ea"
+    },
     "bitops": {
       "Package": "bitops",
       "Version": "1.0-6",
