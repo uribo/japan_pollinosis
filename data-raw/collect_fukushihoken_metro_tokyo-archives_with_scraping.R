@@ -7,31 +7,40 @@ library(rvest)
 library(dplyr)
 library(lubridate)
 
-collect_table_data <- function(url) {
-  check <- 
-    stringr::str_detect(url, "archive/h[0-9]{2}")
-  if (rlang::is_true(check)) {
-    url %>% 
-      xml2::read_html() %>% 
-      rvest::html_nodes(css = "#hisan > div > div > div > table.hisanTable") %>% 
-      rvest::html_table(fill = TRUE) %>% 
-      purrr::reduce(rbind) %>% 
-      tibble::as_tibble()
-  } else {
-    url %>% 
-      xml2::read_html() %>% 
-      rvest::html_nodes(css = '#hisan > div > table') %>% 
-      rvest::html_table(header = TRUE) %>% 
-      purrr::keep(~ nrow(.) > 1 & ncol(.) == 14) %>% 
-      purrr::map(
-       ~ .x %>% 
-         purrr::set_names(c("日付", "曜日",
-                            as.character(forcats::fct_drop(station_list))))
-      ) %>% 
-      purrr::reduce(rbind) %>% 
-      tibble::as_tibble()
+collect_table_data <- memoise::memoise(
+  function(url) {
+    check <- 
+      stringr::str_detect(url, "archive/(r|h)[0-9]{1,2}")
+    if (rlang::is_true(check)) {
+      df_sets <- 
+        url %>% 
+        xml2::read_html() %>% 
+        rvest::html_elements(css = "#hisan > div > div > div > table.hisanTable") %>% 
+        rvest::html_table(fill = TRUE)
+    } else {
+      df_sets <- 
+        url %>% 
+        xml2::read_html() %>% 
+        rvest::html_elements(css = '#hisan > div > table') %>% 
+        rvest::html_table(header = FALSE) %>% 
+        purrr::keep(~ nrow(.) > 1 & ncol(.) == 14)
+    }
+    if (length(df_sets) > 0) {
+      df_sets %>% 
+        purrr::map(
+          # readr::type_convert(col_types = paste0(rep("c", 14), collapse = ""))
+          ~ .x %>% 
+            dplyr::mutate(dplyr::across(
+              tidyselect::everything(),
+              .fns = as.character))
+        ) %>% 
+        purrr::list_rbind() %>% 
+        tibble::as_tibble() %>% 
+        purrr::set_names(c("日付", "曜日",
+                           as.character(forcats::fct_drop(station_list))))
+    }
   }
-}
+)
 
 parse_table_data <- function(url, jp_year) {
   x <- 
@@ -48,6 +57,8 @@ parse_table_data <- function(url, jp_year) {
     tidyr::pivot_longer(cols = seq.int(3, ncol(.)), 
                         names_to = "station", 
                         values_to = "value") %>% 
+    dplyr::mutate(value = as.character(value) %>% 
+                    stringr::str_replace("0.\\/", "0.0")) %>% 
     dplyr::mutate(
       day = factor(day, 
                    levels = readr::locale(date_names = "ja") %>% 
@@ -76,7 +87,7 @@ parse_table_data <- function(url, jp_year) {
                           note      = readr::col_logical()
                         )) %>% 
     tidyr::fill(date) %>% 
-    mutate(station = forcats::fct_relevel(station,
+    dplyr::mutate(station = forcats::fct_relevel(station,
                                           levels(station_list)))
 }
 
@@ -84,21 +95,25 @@ site_url <- "https://www.fukushihoken.metro.tokyo.lg.jp/"
 station_list <- c("千代田", "葛飾", "杉並", "北", "大田",
                   "青梅", "八王子", "多摩", "町田", "立川", 
                   "府中", "小平") %>% 
+  ensurer::ensure(length(.) == 12L) %>% 
   forcats::as_factor() %>% 
   forcats::fct_relevel(c("青梅", "八王子", "立川", "多摩", "町田",
                          "府中", "小平", "杉並", "北", "大田",
                          "千代田", "葛飾"))
 
-# 2020 ----------------------------------------------------------------------
+# 2023 ----------------------------------------------------------------------
+# wip 2023-02-10時点の件数
 df_pollen_current <- 
   c("cedar", "japanese_cypress") %>% 
-  purrr::map_dfr(
+  purrr::map(
     ~ parse_table_data(glue::glue(site_url, 
                                   "allergy/pollen/data/{target}.html", 
                                   target = .x),
-                       jp_year = "r2")) %>% 
-  filter(date < lubridate::make_date(2020, 4, 1)) %>% 
-  assertr::verify(dim(.) == c(1056, 6))
+                       jp_year = "r5")) %>% 
+  purrr::list_rbind() %>% 
+  # 2023-01-04~
+  filter(date < lubridate::make_date(2023, 4, 1)) %>% 
+  assertr::verify(dim(.) == c(888, 6))
 
 # 過去 ----------------------------------------------------------------------
 urls <- "allergy/pollen/archive/"
@@ -111,18 +126,25 @@ data_urls <-
   html_attr("href") %>% 
   stringr::str_subset("cedar|japanese_cypress") %>% 
   stringr::str_c(site_url, urls, .) %>% 
-  ensurer::ensure(length(.) == 30L)
+  ensurer::ensure(length(.) == 36L)
 
 slow_parse_table <- 
   slowly(~ parse_table_data(.x,
                           jp_year = .x %>% 
-                            stringr::str_extract("h[0-9]{2}")), 
-       rate = rate_delay(pause = 3), 
+                            stringr::str_extract("(h|r)[0-9]{1,2}")), 
+       rate = rate_delay(pause = 7), 
        quiet = FALSE)
+
+
+length(data_urls)
+parse_table_data(data_urls[[36]],
+                 jp_year = data_urls[[36]] %>% 
+                   stringr::str_extract("(h|r)[0-9]{1,2}"))
 
 df_pollen_archives <- 
   data_urls %>% 
-  purrr::map_dfr(~ slow_parse_table(.)) %>% 
+  purrr::map(~ slow_parse_table(.x)) %>% 
+  purrr::list_rbind() %>% 
   mutate(date = if_else(date == "2005-04-09" & day == "木",
                         ymd("2005-04-07"),
                         date),
@@ -132,13 +154,13 @@ df_pollen_archives <-
          # 2009-03-10 --> /31/ --> 2009-03-12	
          date = if_else(date == "2009-03-10" & day == "水",
                         ymd("2009-03-11"),
-                        date)) #%>% 
-  # assertr::verify(dim(.) == c(43992, 6))
+                        date)) %>% 
+  assertr::verify(dim(.) == c(56352, 6))
 
 # Missing value exist?
 df_pollen_archives %>% 
   filter(is.na(value)) %>% 
-  assertr::verify(nrow(.) == 101)
+  assertr::verify(nrow(.) == 84L)
 
 # Complete case?
 df_pollen_archives %>% 
