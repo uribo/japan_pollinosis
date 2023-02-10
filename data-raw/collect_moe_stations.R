@@ -43,7 +43,7 @@ if (rlang::is_false(file.exists(here::here("data/moe_stations.csv")))) {
   }
   extract_station_list <- function(target_page, table_id) {
     target_page %>% 
-      rvest::html_nodes(css = table_id) %>% 
+      rvest::html_elements(css = table_id) %>% 
       rvest::html_table(header = TRUE) %>% 
       purrr::map(
         .x = .,
