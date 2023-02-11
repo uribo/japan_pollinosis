@@ -131,68 +131,106 @@ data_urls <-
   stringr::str_c(site_url, urls, .) %>% 
   ensurer::ensure(length(.) == 36L)
 fs::dir_create(here::here("data-raw/tokyo"))
-download_tokyo_archive_zip <- function(url) {
-  x <- 
-    url %>% 
-    rvest::read_html()
-  file_url <- 
-    x %>% 
-    rvest::html_element(css = "#hisan > p.csvLink.clearfix > a") %>% 
-    rvest::html_attr(name = "href") %>% 
-    stringr::str_remove("..\\/") %>% 
-    xml2::url_absolute(base = "https://www.fukushihoken.metro.tokyo.lg.jp/allergy/pollen/archive/")
-  file_url %>% 
-    download.file(destfile = here::here(glue::glue("data-raw/tokyo/{basename(file_url)}")))  
-}
-
-data_urls %>% 
-  purrr::walk(
-    function(url) {
-      Sys.sleep(7)
-      download_tokyo_archive_zip(url)      
-    }
-  )
-# fs::dir_ls(here::here("data-raw/tokyo/"), regexp = ".csv.zip") %>% 
+# H17~R4
+# download_tokyo_archive_zip <- function(url) {
+#   x <- 
+#     url %>% 
+#     rvest::read_html()
+#   file_url <- 
+#     x %>% 
+#     rvest::html_element(css = "#hisan > p.csvLink.clearfix > a") %>% 
+#     rvest::html_attr(name = "href") %>% 
+#     stringr::str_remove("..\\/") %>% 
+#     xml2::url_absolute(base = "https://www.fukushihoken.metro.tokyo.lg.jp/allergy/pollen/archive/")
+#   file_url %>% 
+#     download.file(destfile = here::here(glue::glue("data-raw/tokyo/{basename(file_url)}")))  
+# }
+# 
+# data_urls %>% 
 #   purrr::walk(
-#     ~ unzip(.x, 
-#             exdir = here::here("data-raw/tokyo/"))
+#     function(url) {
+#       Sys.sleep(7)
+#       download_tokyo_archive_zip(url)      
+#     }
 #   )
-
-readr::read_csv("data-raw/tokyo/r3_japanese_cypress_archive.csv/r3_japanese_cypress_archive.csv",
-                col_types = paste0("c",
-                                   paste0(rep("d", 12), collapse = ""),
-                                   "cc"))
-readr::read_csv("data-raw/tokyo/h17_cedar_data.csv",
-                locale = readr::locale(encoding = "cp932"),
-                col_types = paste0("cc",
-                                   paste0(rep("c", 12), collapse = ""),
-                                   "cc")) %>% 
-  glimpse()
-
-csv_files <- 
-  fs::dir_ls(here::here("data-raw/tokyo/"), 
-           regexp = ".csv$", 
-           recurse = TRUE, 
-           type = "file")
-
-csv_files %>% 
-  head(20) %>% 
-  purrr::map(
-    function(x) {
-      readr::read_csv(x,
-                      locale = readr::locale(encoding = "cp932"),
-                      col_types = paste0("cc",
-                                         paste0(rep("c", 12), collapse = ""),
-                                         "cc"))
-    }
-  )
-
-# %>% 
-#   mutate(`日付` = paste0(basename(csv_files) %>% 
-#                          stringr::str_remove("_.+") %>% 
-#                          zipangu::convert_jyear(),
-#                        "年",
-#                        `日付`))
+# # fs::dir_ls(here::here("data-raw/tokyo/"), regexp = ".csv.zip") %>% 
+# #   purrr::walk(
+# #     ~ unzip(.x, 
+# #             exdir = here::here("data-raw/tokyo/"))
+# #   )
+# 
+# csv_files <- 
+#   fs::dir_ls(here::here("data-raw/tokyo/"), 
+#            regexp = ".csv$", 
+#            recurse = TRUE, 
+#            type = "file")
+# 
+# df_pollen_archives1 <- 
+#   csv_files[1:28] %>% 
+#   purrr::map(
+#     function(x) {
+#       readr::read_csv(x,
+#                       locale = readr::locale(encoding = "cp932"),
+#                       col_types = paste0("cc",
+#                                          paste0(rep("c", 12), collapse = ""),
+#                                          "__"),
+#                       na = c("欠測", "-"))
+#     } %>% 
+#       purrr::set_names(c("日付", "曜日",
+#                          as.character(forcats::fct_drop(station_list)))) %>%
+#       mutate(`日付` = paste0(basename(x) %>%
+#                              stringr::str_remove("_.+") %>%
+#                              zipangu::convert_jyear(),
+#                            "年",
+#                            `日付`)) %>% 
+#       mutate(type = stringr::str_extract(basename(x), "(cedar|japanese_cypress)"))
+#     ) %>% 
+#   purrr::list_rbind() %>% 
+#   filter(stringr::str_detect(`日付`, ".+年.+月.+日")) %>% 
+#   filter(stringr::str_detect(`日付`, "合計", negate = TRUE),
+#          千代田 != "千代田") %>% 
+#   mutate(`小平` = stringr::str_replace(`小平`, "0./", "0"))
+# 
+# df_pollen_archives2 <- 
+#   csv_files[29:32] %>% 
+#   purrr::map(
+#     \(x) readr::read_csv(x,
+#                          locale = readr::locale(encoding = "cp932"),
+#                          col_types = paste0("cc",
+#                                             paste0(rep("c", 11), collapse = ""),
+#                                             "___"),
+#                          na = c("欠測", "-")) %>% 
+#       mutate(type = stringr::str_extract(basename(x), "(cedar|japanese_cypress)"))
+#   ) %>% 
+#   purrr::list_rbind() %>% 
+#   tidyr::separate_wider_regex(
+#     cols = `日付`,
+#     patterns = c(日付 = ".+年.+月.+日", "（", 曜日 = ".*", "）")) %>% 
+#   relocate(type, .after = 14)
+# 
+# df_pollen_archives3 <- 
+#   csv_files[33:length(csv_files)] %>% 
+#   purrr::map(
+#     \(x) readr::read_csv(x,
+#                          col_types = paste0("c",
+#                                             paste0(rep("d", 12), collapse = ""),
+#                                             "__")) %>% 
+#       mutate(type = stringr::str_extract(basename(x), "(cedar|japanese_cypress)"))
+#   ) %>% 
+#   purrr::list_rbind() %>% 
+#   tidyr::separate_wider_regex(
+#     cols = `日付`,
+#     patterns = c(日付 = ".+年.+月.+日", "（", 曜日 = ".*", "）"))
+# 
+# df_pollen_archives_bind <- 
+#   bind_rows(
+#   df_pollen_archives1 %>% 
+#     readr::type_convert(col_types = paste0("cc", paste0(rep("d", 12), collapse = ""), "c", collapse = "")),
+#   df_pollen_archives2 %>% 
+#     readr::type_convert(col_types = paste0("cc", paste0(rep("d", 12), collapse = ""), "c", collapse = "")),
+#   df_pollen_archives3
+# ) %>% 
+#   mutate(`日付` = lubridate::as_date(`日付`))
 
 
 # slow_parse_table <- 
