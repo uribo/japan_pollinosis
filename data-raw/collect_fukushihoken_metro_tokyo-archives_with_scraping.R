@@ -51,9 +51,12 @@ parse_table_data <- function(url, jp_year) {
       names(x) %>% 
         dplyr::recode(`日付` = "date", `曜日` = "day"))
   x %>% 
-    dplyr::mutate(date = lubridate::as_date(
+    dplyr::mutate(date = 
       stringr::str_c(zipangu::convert_jyear(jp_year), 
-                     "/", date))) %>% 
+                     "/", date)) %>% 
+    dplyr::mutate(date = case_when(date == "2009//31/" ~ "2009/3/12",
+                                   .default = date)) %>% 
+    dplyr::mutate(date = lubridate::as_date(date)) %>% 
     tidyr::pivot_longer(cols = seq.int(3, ncol(.)), 
                         names_to = "station", 
                         values_to = "value") %>% 
@@ -135,27 +138,37 @@ slow_parse_table <-
        rate = rate_delay(pause = 7), 
        quiet = FALSE)
 
-
-length(data_urls)
-parse_table_data(data_urls[[36]],
-                 jp_year = data_urls[[36]] %>% 
-                   stringr::str_extract("(h|r)[0-9]{1,2}"))
-
 df_pollen_archives <- 
   data_urls %>% 
   purrr::map(~ slow_parse_table(.x)) %>% 
-  purrr::list_rbind() %>% 
+  purrr::list_rbind()
+
+df_pollen_archives %>% 
+  filter(is.na(date)) %>% 
+  ensurer::ensure(nrow(.) == 0L)
+
+df_pollen_archives %>% 
+  count(date, sort = TRUE) %>% 
+  filter(n != length(station_list)*2) %>% 
+  ensurer::ensure(nrow(.) == 6L)
+
+df_pollen_archives <-
+  df_pollen_archives %>% 
   mutate(date = if_else(date == "2005-04-09" & day == "木",
                         ymd("2005-04-07"),
                         date),
          date = if_else(date == "2006-02-07" & day == "金",
                         ymd("2006-02-17"),
                         date),
-         # 2009-03-10 --> /31/ --> 2009-03-12	
-         date = if_else(date == "2009-03-10" & day == "水",
+         date = if_else(date == "2009-03-12" & day == "水",
                         ymd("2009-03-11"),
                         date)) %>% 
   assertr::verify(dim(.) == c(56352, 6))
+
+df_pollen_archives %>% 
+  count(date, sort = TRUE) %>% 
+  filter(n != length(station_list)*2) %>% 
+  ensurer::ensure(nrow(.) == 0L)
 
 # Missing value exist?
 df_pollen_archives %>% 
