@@ -158,6 +158,43 @@ data_urls %>%
 #             exdir = here::here("data-raw/tokyo/"))
 #   )
 
+readr::read_csv("data-raw/tokyo/r3_japanese_cypress_archive.csv/r3_japanese_cypress_archive.csv",
+                col_types = paste0("c",
+                                   paste0(rep("d", 12), collapse = ""),
+                                   "cc"))
+readr::read_csv("data-raw/tokyo/h17_cedar_data.csv",
+                locale = readr::locale(encoding = "cp932"),
+                col_types = paste0("cc",
+                                   paste0(rep("c", 12), collapse = ""),
+                                   "cc")) %>% 
+  glimpse()
+
+csv_files <- 
+  fs::dir_ls(here::here("data-raw/tokyo/"), 
+           regexp = ".csv$", 
+           recurse = TRUE, 
+           type = "file")
+
+csv_files %>% 
+  head(20) %>% 
+  purrr::map(
+    function(x) {
+      readr::read_csv(x,
+                      locale = readr::locale(encoding = "cp932"),
+                      col_types = paste0("cc",
+                                         paste0(rep("c", 12), collapse = ""),
+                                         "cc"))
+    }
+  )
+
+# %>% 
+#   mutate(`日付` = paste0(basename(csv_files) %>% 
+#                          stringr::str_remove("_.+") %>% 
+#                          zipangu::convert_jyear(),
+#                        "年",
+#                        `日付`))
+
+
 # slow_parse_table <- 
 #   slowly(~ parse_table_data(.x,
 #                           jp_year = .x %>% 
