@@ -130,65 +130,92 @@ data_urls <-
   stringr::str_subset("cedar|japanese_cypress") %>% 
   stringr::str_c(site_url, urls, .) %>% 
   ensurer::ensure(length(.) == 36L)
+fs::dir_create(here::here("data-raw/tokyo"))
+download_tokyo_archive_zip <- function(url) {
+  x <- 
+    url %>% 
+    rvest::read_html()
+  file_url <- 
+    x %>% 
+    rvest::html_element(css = "#hisan > p.csvLink.clearfix > a") %>% 
+    rvest::html_attr(name = "href") %>% 
+    stringr::str_remove("..\\/") %>% 
+    xml2::url_absolute(base = "https://www.fukushihoken.metro.tokyo.lg.jp/allergy/pollen/archive/")
+  file_url %>% 
+    download.file(destfile = here::here(glue::glue("data-raw/tokyo/{basename(file_url)}")))  
+}
 
-slow_parse_table <- 
-  slowly(~ parse_table_data(.x,
-                          jp_year = .x %>% 
-                            stringr::str_extract("(h|r)[0-9]{1,2}")), 
-       rate = rate_delay(pause = 7), 
-       quiet = FALSE)
+data_urls %>% 
+  purrr::walk(
+    function(url) {
+      Sys.sleep(7)
+      download_tokyo_archive_zip(url)      
+    }
+  )
+# fs::dir_ls(here::here("data-raw/tokyo/"), regexp = ".csv.zip") %>% 
+#   purrr::walk(
+#     ~ unzip(.x, 
+#             exdir = here::here("data-raw/tokyo/"))
+#   )
 
-df_pollen_archives <- 
-  data_urls %>% 
-  purrr::map(~ slow_parse_table(.x)) %>% 
-  purrr::list_rbind()
-
-df_pollen_archives %>% 
-  filter(is.na(date)) %>% 
-  ensurer::ensure(nrow(.) == 0L)
-
-df_pollen_archives %>% 
-  count(date, sort = TRUE) %>% 
-  filter(n != length(station_list)*2) %>% 
-  ensurer::ensure(nrow(.) == 6L)
-
-df_pollen_archives <-
-  df_pollen_archives %>% 
-  mutate(date = if_else(date == "2005-04-09" & day == "木",
-                        ymd("2005-04-07"),
-                        date),
-         date = if_else(date == "2006-02-07" & day == "金",
-                        ymd("2006-02-17"),
-                        date),
-         date = if_else(date == "2009-03-12" & day == "水",
-                        ymd("2009-03-11"),
-                        date)) %>% 
-  assertr::verify(dim(.) == c(56352, 6))
-
-df_pollen_archives %>% 
-  count(date, sort = TRUE) %>% 
-  filter(n != length(station_list)*2) %>% 
-  ensurer::ensure(nrow(.) == 0L)
-
-# Missing value exist?
-df_pollen_archives %>% 
-  filter(is.na(value)) %>% 
-  assertr::verify(nrow(.) == 84L)
-
-# Complete case?
-df_pollen_archives %>% 
-  filter_at(vars(date, day, station, type), 
-            any_vars(sum(is.na(.)))) %>% 
-  assertr::verify(nrow(.) == 0)
-
-# Is unique?
-df_pollen_archives %>% 
-  count(date, type, station) %>% 
-  filter(between(n, 1, 1)) %>% 
-  assertr::verify(nrow(.) == nrow(df_pollen_archives))
-
-# merge --------------------------------------------------------------------
-df_pollen_current %>%
-  bind_rows(df_pollen_archives) %>%
-  arrange(type, date, station) %>% 
-  readr::write_csv(here::here("data/tokyo_archives.csv"))
+# slow_parse_table <- 
+#   slowly(~ parse_table_data(.x,
+#                           jp_year = .x %>% 
+#                             stringr::str_extract("(h|r)[0-9]{1,2}")), 
+#        rate = rate_delay(pause = 7), 
+#        quiet = FALSE)
+# 
+# df_pollen_archives <- 
+#   data_urls %>% 
+#   purrr::map(~ slow_parse_table(.x)) %>% 
+#   purrr::list_rbind()
+# 
+# df_pollen_archives %>% 
+#   filter(is.na(date)) %>% 
+#   ensurer::ensure(nrow(.) == 0L)
+# 
+# df_pollen_archives %>% 
+#   count(date, sort = TRUE) %>% 
+#   filter(n != length(station_list)*2) %>% 
+#   ensurer::ensure(nrow(.) == 6L)
+# 
+# df_pollen_archives <-
+#   df_pollen_archives %>% 
+#   mutate(date = if_else(date == "2005-04-09" & day == "木",
+#                         ymd("2005-04-07"),
+#                         date),
+#          date = if_else(date == "2006-02-07" & day == "金",
+#                         ymd("2006-02-17"),
+#                         date),
+#          date = if_else(date == "2009-03-12" & day == "水",
+#                         ymd("2009-03-11"),
+#                         date)) %>% 
+#   assertr::verify(dim(.) == c(56352, 6))
+# 
+# df_pollen_archives %>% 
+#   count(date, sort = TRUE) %>% 
+#   filter(n != length(station_list)*2) %>% 
+#   ensurer::ensure(nrow(.) == 0L)
+# 
+# # Missing value exist?
+# df_pollen_archives %>% 
+#   filter(is.na(value)) %>% 
+#   assertr::verify(nrow(.) == 84L)
+# 
+# # Complete case?
+# df_pollen_archives %>% 
+#   filter_at(vars(date, day, station, type), 
+#             any_vars(sum(is.na(.)))) %>% 
+#   assertr::verify(nrow(.) == 0)
+# 
+# # Is unique?
+# df_pollen_archives %>% 
+#   count(date, type, station) %>% 
+#   filter(between(n, 1, 1)) %>% 
+#   assertr::verify(nrow(.) == nrow(df_pollen_archives))
+# 
+# # merge --------------------------------------------------------------------
+# df_pollen_current %>%
+#   bind_rows(df_pollen_archives) %>%
+#   arrange(type, date, station) %>% 
+#   readr::write_csv(here::here("data/tokyo_archives.csv"))
